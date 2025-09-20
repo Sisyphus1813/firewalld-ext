@@ -74,6 +74,8 @@ def catalog(ipv4, ipv6):
 
 
 async def main(function):
+    if not os.path.isdir("/var/lib/firewalld-ext/"):
+        os.mkdir("/var/lib/firewalld-ext/")
     current_ips = data_handler.load("ips")
     if function != "remove_all":
         results = await poll_sources()
