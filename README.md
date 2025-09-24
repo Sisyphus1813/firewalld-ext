@@ -92,14 +92,14 @@ firewalld-ext/
 
 Run with one of the following flags:
 
-| Command                                     | Description                                           |
-| ----------------------------------          | ----------------------------------------------------- |
-| `sudo firewalld-ext --set-proifle <PROFILE> | Switch to a different threat feed profile             |
-| `sudo firewalld-ext --refresh`              | Update feeds, append new entries, preserve old ones   |
-| `sudo firewalld-ext --complete-refresh`     | Purge and rebuild blocklists from scratch             |
-| `sudo firewalld-ext --remove-all`           | Remove all firewalld-ext ipsets and rules             |
-| `firewalld-ext --show-stats`                | Show counts of IPv4, IPv6, and total blocked networks |
-| `firewalld-ext --show-ips`                  | Print all blocked IPs/subnets                         |
+| Command                                      | Description                                           |
+| ----------------------------------           | ----------------------------------------------------- |
+| `sudo firewalld-ext --set-proifle <PROFILE>` | Switch to a different threat feed profile             |
+| `sudo firewalld-ext --refresh`               | Update feeds, append new entries, preserve old ones   |
+| `sudo firewalld-ext --complete-refresh`      | Purge and rebuild blocklists from scratch             |
+| `sudo firewalld-ext --remove-all`            | Remove all firewalld-ext ipsets and rules             |
+| `firewalld-ext --show-stats`                 | Show counts of IPv4, IPv6, and total blocked networks |
+| `firewalld-ext --show-ips`                   | Print all blocked IPs/subnets                         |
 
 ### Example
 
