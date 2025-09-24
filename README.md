@@ -183,7 +183,7 @@ journalctl -u firewalld-ext.service -f
 ## Example Stats Output
 
 ```bash
-$ firewalld-ext --show-stats
+$ firewalld-ext --status
 Profile: Balanced
 IPV4 Networks: 34011
 IPV6 Networks: 78
