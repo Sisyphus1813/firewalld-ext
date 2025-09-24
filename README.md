@@ -30,14 +30,6 @@ It is designed for speed, scalability, and automation—capable of ingesting tho
   * Stores blocklists and metadata in `/var/lib/firewalld-ext/`.
   * Tracks counts of IPv4, IPv6, and total blocked networks, plus last update timestamp.
 
-* **Flexible Update Modes**
-
-  * **`--complete-refresh`**: wipe and replace blocklists.
-  * **`--refresh-keep`**: merge new feeds while retaining existing entries.
-  * **`--remove-all`**: clear all firewalld-ext rules.
-  * **`--show-stats`**: view number of blocked networks and update time.
-  * **`--show-ips`**: dump currently blocked IPs.
-
 * **Systemd Integration**
   Comes with `firewalld-ext.service` and `firewalld-ext.timer` for periodic updates.
 
@@ -100,17 +92,21 @@ firewalld-ext/
 
 Run with one of the following flags:
 
-| Command                            | Description                                           |
-| ---------------------------------- | ----------------------------------------------------- |
-| `firewalld-ext --refresh-keep`     | Update feeds, append new entries, preserve old ones   |
-| `firewalld-ext --complete-refresh` | Purge and rebuild blocklists from scratch             |
-| `firewalld-ext --remove-all`       | Remove all firewalld-ext ipsets and rules             |
-| `firewalld-ext --show-stats`       | Show counts of IPv4, IPv6, and total blocked networks |
-| `firewalld-ext --show-ips`         | Print all blocked IPs/subnets                         |
+| Command                                     | Description                                           |
+| ----------------------------------          | ----------------------------------------------------- |
+| `sudo firewalld-ext --set-proifle <PROFILE> | Switch to a different threat feed profile             |
+| `sudo firewalld-ext --refresh`              | Update feeds, append new entries, preserve old ones   |
+| `sudo firewalld-ext --complete-refresh`     | Purge and rebuild blocklists from scratch             |
+| `sudo firewalld-ext --remove-all`           | Remove all firewalld-ext ipsets and rules             |
+| `firewalld-ext --show-stats`                | Show counts of IPv4, IPv6, and total blocked networks |
+| `firewalld-ext --show-ips`                  | Print all blocked IPs/subnets                         |
 
 ### Example
 
 ```bash
+# Change to the strict threat feed
+sudo firewalld-ext --set-profile strict
+
 # Replace current blocklist with latest feeds
 sudo firewalld-ext --complete-refresh
 
@@ -181,6 +177,7 @@ journalctl -u firewalld-ext.service -f
 
 ```bash
 $ firewalld-ext --show-stats
+Profile: Balanced
 IPV4 Networks: 34011
 IPV6 Networks: 78
 Total number of Networks blocked: 34089
@@ -188,6 +185,15 @@ Last updated: 2025-09-20 11:50:17.685592
 ```
 
 ---
+
+## Threat feed profiles
+
+* **Open:** Minimal threat feed containing only the bare essentialls.
+* **Lenient:** Expands on the "Open" threat feed and includes IPV6 addresses
+* **Balanced:** The goldilocks zone, A good amount of threat feed covering a wide variety of threats; low to no chance of breaking during everyday usage.
+* **Firm:** Expands significantly on the Balanced profile by adding brute force SSH/telnet threat feeds. Expect occassion breakage or slow initial network connection.
+* **Srict:** Generally not reccomended, but it's there if you want it. You'll still be able to access the internet but expecgt frequent breakage and extremely slow initial network connection.
+
 
 ## Troubleshooting
 
@@ -205,14 +211,6 @@ Last updated: 2025-09-20 11:50:17.685592
 
 * **Problem:** No stats or IPs showing.
   **Fix:** `firewalld-ext --complete-refresh`.
-
----
-
-## Roadmap
-
-* [ ] Add support for more OSINT feeds.
-* [ ] Configurable update interval via YAML/JSON.
-* [ ] Support for whitelists / exceptions.
 
 ---
 

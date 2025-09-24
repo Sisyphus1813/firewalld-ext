@@ -21,7 +21,7 @@ import datetime
 import subprocess
 from firewalld_ext import data_handler
 from firewalld_ext.apply_rules import apply_rules
-from firewalld_ext.sources import all_sources
+from firewalld_ext.sources import profiles
 
 
 async def fetch(session, source):
@@ -33,9 +33,9 @@ async def fetch(session, source):
         return {"source": source, "response": str(e)}
 
 
-async def poll_sources():
+async def poll_sources(sources):
     async with aiohttp.ClientSession() as session:
-        tasks = {fetch(session, source) for source in all_sources}
+        tasks = {fetch(session, source) for source in sources}
         return await asyncio.gather(*tasks)
 
 
@@ -49,6 +49,11 @@ def parse(data):
                 line = line["cidr"]
             except KeyError:
                 continue
+        elif "csv" in data["source"]:
+            try:
+                line = line[: line.index(",") :]
+            except ValueError:
+                continue
         try:
             ip = ipaddress.ip_network(line.strip())
             if isinstance(ip, ipaddress.IPv4Network):
@@ -57,14 +62,13 @@ def parse(data):
                 ipv6.add(ip)
         except ValueError:
             continue
-    ipv4 = {str(ip) for ip in ipaddress.collapse_addresses(ipv4)}
-    ipv6 = {str(ip) for ip in ipaddress.collapse_addresses(ipv6)}
     return ipv4, ipv6
 
 
-def catalog(ipv4, ipv6):
+def catalog(ipv4, ipv6, profile):
     all_networks = {"ipv4": list(ipv4), "ipv6": list(ipv6)}
     info = {
+        "Profile": profile.capitalize(),
         "IPV4 Networks": len(ipv4),
         "IPV6 Networks": len(ipv6),
         "Total number of Networks blocked": sum(len(v) for v in all_networks.values()),
@@ -76,9 +80,21 @@ def catalog(ipv4, ipv6):
 async def main(function):
     if not os.path.isdir("/var/lib/firewalld-ext/"):
         os.mkdir("/var/lib/firewalld-ext/")
+    print("Loading settings...")
     current_ips = data_handler.load("ips")
+    profile_name = data_handler.load("profile")
+    if profile_name:
+        profile = profiles[str(profile_name)]
+        print("Done")
+    else:
+        profile_name = "balanced"
+        profile = profiles["balanced"]
+        print("No settings found; falling back to default")
     if function != "remove_all":
-        results = await poll_sources()
+        print("Polling sources...")
+        results = await poll_sources(profile)
+        print("Done")
+        print("Parsing data...")
         parsed = await asyncio.gather(
             *(asyncio.to_thread(parse, result) for result in results)
         )
@@ -86,28 +102,38 @@ async def main(function):
         for i4, i6 in parsed:
             ipv4 |= i4
             ipv6 |= i6
+        ipv4 = {str(ip) for ip in ipaddress.collapse_addresses(ipv4)}
+        ipv6 = {str(ip) for ip in ipaddress.collapse_addresses(ipv6)}
+        print("Done")
     match function:
-        case "refresh_keep":
+        case "refresh":
             if current_ips:
                 ipv4.difference_update(set(current_ips["ipv4"]))
                 ipv6.difference_update(set(current_ips["ipv6"]))
                 combined_ipv4 = ipv4.union(set(current_ips["ipv4"]))
                 combined_ipv6 = ipv6.union(set(current_ips["ipv6"]))
-                catalog(combined_ipv4, combined_ipv6)
+                catalog(combined_ipv4, combined_ipv6, profile_name)
                 apply_rules(ipv4, ipv6, function)
             else:
-                catalog(ipv4, ipv6)
+                catalog(ipv4, ipv6, profile_name)
                 apply_rules(ipv4, ipv6, "complete_refresh")
 
         case "complete_refresh":
-            catalog(ipv4, ipv6)
+            catalog(ipv4, ipv6, profile_name)
             apply_rules(ipv4, ipv6, function)
 
         case "remove_all":
+            paths = {
+                "/etc/firewalld/direct.xml",
+                "/etc/firewalld/ipsets/blocked_v4.xml",
+                "/etc/firewalld/ipsets/blocked_v6.xml"
+            }
             if not current_ips and not os.path.isfile("/etc/firewalld/direct.xml"):
                 print("No addresses detected in memory to remove!")
                 return
-            os.remove("/etc/firewalld/direct.xml")
-            os.remove("/etc/firewalld/ipsets/blocked_v4.xml")
-            os.remove("/etc/firewalld/ipsets/blocked_v6.xml")
+            for path in paths:
+                try:
+                    os.remove(path)
+                except FileNotFoundError:
+                    print(f"{path} does not exist, skipping...")
             subprocess.run(["sudo", "firewall-cmd", "--complete-reload"])

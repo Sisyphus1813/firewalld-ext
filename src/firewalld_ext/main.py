@@ -20,7 +20,7 @@ import asyncio
 parser = argparse.ArgumentParser()
 group = parser.add_mutually_exclusive_group(required=True)
 group.add_argument(
-    "--refresh-keep",
+    "--refresh",
     help="Update blocked IPs while keeping older entries.",
     action="store_true",
 )
@@ -42,12 +42,18 @@ group.add_argument(
 group.add_argument(
     "--show-ips", help="Show all currently blocked IPs.", action="store_true"
 )
+group.add_argument(
+    "--set-profile",
+    metavar="PROFILE",
+    help="Set the active profile to PROFILE.",
+    type=str,
+)
 
 def main():
     args = parser.parse_args()
     match True:
-        case _ if args.refresh_keep:
-            asyncio.run(update.main("refresh_keep"))
+        case _ if args.refresh:
+            asyncio.run(update.main("refresh"))
         case _ if args.complete_refresh:
             asyncio.run(update.main("complete_refresh"))
         case _ if args.remove_all:
@@ -59,3 +65,9 @@ def main():
         case _ if args.show_ips:
             current_ips = data_handler.load("ips")
             print(current_ips)
+        case _ if args.set_profile:
+            info = data_handler.load("info")
+            if not info:
+                info = {}
+            info["Profile"] = args.set_profile
+            data_handler.save(current_ips=None, info=info)

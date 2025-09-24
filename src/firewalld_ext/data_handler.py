@@ -17,22 +17,29 @@ import os
 
 
 def save(current_ips, info):
-    with open("/var/lib/firewalld-ext/blocked_ips.json", "w") as f:
-        json.dump(current_ips, f)
-    with open("/var/lib/firewalld-ext/info.json", "w") as f:
-        json.dump(info, f)
+    print("Saving settings...")
+    if current_ips:
+        with open("/var/lib/firewalld-ext/blocked_ips.json", "w") as f:
+            json.dump(current_ips, f)
+    if info:
+        with open("/var/lib/firewalld-ext/info.json", "w") as f:
+            json.dump(info, f)
+    print("Done")
 
 
 def load(value):
     if os.path.isdir("/var/lib/firewalld-ext"):
         match value:
-            case "info":
+            case "info"|"profile":
                 try:
                     with open("/var/lib/firewalld-ext/info.json", "r") as f:
                         info = json.loads(f.read())
                 except FileNotFoundError:
                     return None
-                return info
+                if value == "profile":
+                    return info["Profile"].lower()
+                else:
+                    return info
             case "ips":
                 try:
                     with open("/var/lib/firewalld-ext/blocked_ips.json", "r") as f:
