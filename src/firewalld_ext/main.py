@@ -16,6 +16,8 @@ from firewalld_ext import update
 from firewalld_ext import data_handler
 import argparse
 import asyncio
+import sys
+import os
 
 parser = argparse.ArgumentParser()
 group = parser.add_mutually_exclusive_group(required=True)
@@ -35,8 +37,8 @@ group.add_argument(
     action="store_true",
 )
 group.add_argument(
-    "--show-stats",
-    help="Show statistics on the number of currently blocked IPs.",
+    "--status",
+    help="Show firewalld-ext status and statistics",
     action="store_true",
 )
 group.add_argument(
@@ -51,6 +53,12 @@ group.add_argument(
 
 def main():
     args = parser.parse_args()
+    if os.geteuid() != 0 and not args.status and not args.show_ips:
+        print("Operation aborted: Please run as root!")
+        return
+    elif len(sys.argv) == 1:
+        print("Must include an argument. Try: firewalld-ext --help")
+        return
     match True:
         case _ if args.refresh:
             asyncio.run(update.main("refresh"))
@@ -58,13 +66,16 @@ def main():
             asyncio.run(update.main("complete_refresh"))
         case _ if args.remove_all:
             asyncio.run(update.main("remove_all"))
-        case _ if args.show_stats:
+        case _ if args.status:
             info = data_handler.load("info")
             for key, value in info.items():
                 print(f"{key}: {value}")
         case _ if args.show_ips:
             current_ips = data_handler.load("ips")
-            print(current_ips)
+            for key, value in current_ips.items():
+                print(f"\n{key.upper()} Networks:")
+                for ip in value:
+                    print(ip)
         case _ if args.set_profile:
             info = data_handler.load("info")
             if not info:

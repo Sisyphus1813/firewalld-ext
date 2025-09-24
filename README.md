@@ -38,15 +38,22 @@ It is designed for speed, scalability, and automation—capable of ingesting tho
 ## Project Structure
 
 ```
+
 firewalld-ext/
-├── apply_rules.py       # Writes XML ipsets + direct rules, reloads firewalld
-├── data_handler.py      # Handles saving/loading IP + stats JSON
-├── main.py              # CLI entrypoint (argparse + subcommands)
-├── sources.py           # Defines threat intelligence feed URLs
-├── update.py            # Fetches feeds, parses, deduplicates, applies rules
-├── firewalld-ext.service # Systemd service unit
-├── firewalld-ext.timer   # Systemd timer unit
-├── pyproject.toml        # Project metadata + dependencies
+├──  src
+│   └──  firewalld_ext
+│       ├──  apply_rules.py                    # Writes XML ipsets + direct rules, reloads firewalld
+│       ├──  data_handler.py                   # Handles saving/loading IP + stats JSON
+│       ├──  main.py                           # CLI entrypoint (argparse + subcommands)
+│       ├──  sources.py                        # Defines threat intelligence feed URLs
+│       └──  update.py                         # Fetches feeds, parses, deduplicates, applies rules
+├──  systemd
+│   ├──  firewalld-ext.service                 # Systemd service unit
+│   └──  firewalld-ext.timer                   # Systemd timer unit
+├──  LICENSE                                   # License
+├──  pyproject.toml                            # Project metadata + dependencies
+├── 󰂺 README.md
+└──  uv.lock
 ```
 
 ---
@@ -98,7 +105,7 @@ Run with one of the following flags:
 | `sudo firewalld-ext --refresh`              | Update feeds, append new entries, preserve old ones   |
 | `sudo firewalld-ext --complete-refresh`     | Purge and rebuild blocklists from scratch             |
 | `sudo firewalld-ext --remove-all`           | Remove all firewalld-ext ipsets and rules             |
-| `firewalld-ext --show-stats`                | Show counts of IPv4, IPv6, and total blocked networks |
+| `firewalld-ext --status`                    | Show firewalld-ext status and statistics              |
 | `firewalld-ext --show-ips`                  | Print all blocked IPs/subnets                         |
 
 ### Example
@@ -210,7 +217,10 @@ Last updated: 2025-09-20 11:50:17.685592
   **Fix:** Ensure package was installed system-wide with `sudo pip install .`.
 
 * **Problem:** No stats or IPs showing.
-  **Fix:** `firewalld-ext --complete-refresh`.
+  **Fix:** `sudo firewalld-ext --complete-refresh`.
+
+* **Problem:** Ipsets failed to update due to overlapping subenets.
+  **Fix:** This can happen if you attempt to --refresh after changing threat feed profiles before calling --complete-refresh. Simply `sudo firewalld-ext --complete-refresh`
 
 ---
 
