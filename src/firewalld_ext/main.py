@@ -50,6 +50,11 @@ group.add_argument(
     help="Set the active profile to PROFILE.",
     type=str,
 )
+parser.add_argument(
+    "-v", "--verbose",
+    action="store_true",
+    help="Enable verbose output"
+)
 
 def main():
     args = parser.parse_args()
@@ -61,11 +66,11 @@ def main():
         return
     match True:
         case _ if args.refresh:
-            asyncio.run(update.main("refresh"))
+            asyncio.run(update.main("refresh", args.verbose))
         case _ if args.complete_refresh:
-            asyncio.run(update.main("complete_refresh"))
+            asyncio.run(update.main("complete_refresh", args.verbose))
         case _ if args.remove_all:
-            asyncio.run(update.main("remove_all"))
+            asyncio.run(update.main("remove_all", args.verbose))
         case _ if args.status:
             info = data_handler.load("info")
             for key, value in info.items():
@@ -81,4 +86,5 @@ def main():
             if not info:
                 info = {}
             info["Profile"] = args.set_profile
-            data_handler.save(current_ips=None, info=info)
+            data_handler.save(None, info, args.verbose)
+            print("success")

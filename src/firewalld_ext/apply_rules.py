@@ -18,10 +18,10 @@ import shutil
 import os
 
 
-def apply_rules(ipv4=None, ipv6=None, function=None):
+def apply_rules(ipv4=None, ipv6=None, function=None, verbose=False):
     try:
         if function == "complete_refresh":
-            print("Writing rules to firewalld")
+            if verbose: print("Writing rules to firewalld")
             with open("/etc/firewalld/.direct.xml.temp", "w") as f:
                 f.write('<?xml version="1.0" encoding="utf-8"?>\n')
                 f.write("<direct>\n")
@@ -49,7 +49,7 @@ def apply_rules(ipv4=None, ipv6=None, function=None):
                 f.write('<ipset type="hash:net">\n')
                 f.write('  <option name="family" value="inet6"/>\n')
                 f.write('  <option name="maxelem" value="200000"/>\n')
-            print("Done")
+            if verbose: print("Done")
         elif function == "refresh":
             shutil.copy(
                 "/etc/firewalld/ipsets/blocked_v4.xml",
@@ -71,7 +71,7 @@ def apply_rules(ipv4=None, ipv6=None, function=None):
                     f.seek(0)
                     f.writelines(lines[:-1])
                     f.truncate()
-        print("Updating ipsets")
+        if verbose: print("Updating ipsets")
         if ipv4:
             with open("/etc/firewalld/ipsets/.blocked_v4.xml.tmp", "a") as f:
                 for ip in ipv4:
@@ -96,6 +96,6 @@ def apply_rules(ipv4=None, ipv6=None, function=None):
         "/etc/firewalld/ipsets/.blocked_v6.xml.tmp",
         "/etc/firewalld/ipsets/blocked_v6.xml",
     )
-    print("Done")
-    print("Applying settings to firewalld...")
+    if verbose: print("Done")
+    if verbose: print("Applying settings to firewalld...")
     subprocess.run(["sudo", "firewall-cmd", "--complete-reload"])

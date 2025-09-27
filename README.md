@@ -97,8 +97,6 @@ firewalld-ext/
 
 ### CLI Commands
 
-Run with one of the following flags:
-
 | Command                                       | Description                                           |
 | ----------------------------------            | ----------------------------------------------------- |
 | `sudo firewalld-ext --set-proifle <PROFILE>`  | Switch to a different threat feed profile             |
@@ -107,6 +105,8 @@ Run with one of the following flags:
 | `sudo firewalld-ext --remove-all`             | Remove all firewalld-ext ipsets and rules             |
 | `firewalld-ext --status`                      | Show firewalld-ext status and statistics              |
 | `firewalld-ext --show-ips`                    | Print all blocked IPs/subnets                         |
+
+Any of the above commands can be supplemented with the `--verbose` or `-v` flag to enable verbose output.
 
 ### Example
 

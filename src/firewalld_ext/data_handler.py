@@ -16,15 +16,15 @@ import json
 import os
 
 
-def save(current_ips, info):
-    print("Saving settings...")
+def save(current_ips, info, verbose):
+    if verbose: print("Saving settings...")
     if current_ips:
         with open("/var/lib/firewalld-ext/blocked_ips.json", "w") as f:
             json.dump(current_ips, f)
     if info:
         with open("/var/lib/firewalld-ext/info.json", "w") as f:
             json.dump(info, f)
-    print("Done")
+    if verbose: print("Done")
 
 
 def load(value):

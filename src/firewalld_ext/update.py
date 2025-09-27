@@ -25,12 +25,26 @@ from firewalld_ext.sources import profiles
 
 
 async def fetch(session, source):
-    try:
-        async with session.get(source) as response:
-            data = await response.text()
-            return {"source": source, "response": data}
-    except Exception as e:
-        return {"source": source, "response": str(e)}
+    tries = 0
+    while True:
+        tries += 1
+        try:
+            async with session.get(source) as response:
+                data = await response.text()
+                data = {"source": source, "response": data}
+                if not data["response"] and tries < 5:
+                    print(f"Failed to fetch {data["source"]}...retrying")
+                    await asyncio.sleep(tries)
+                    continue
+                break
+        except Exception as e:
+            data = {"source": source, "response": str(e)}
+            if tries < 5:
+                print(f"Failed to fetch {data["source"]}...retrying")
+                await asyncio.sleep(tries)
+                continue
+            break
+    return data
 
 
 async def poll_sources(sources):
@@ -42,6 +56,9 @@ async def poll_sources(sources):
 def parse(data):
     ipv4 = set()
     ipv6 = set()
+    if not data["response"]:
+        print(f"Failed to fetch {data["source"]}.")
+        return set()
     for line in data["response"].splitlines():
         if "spamhaus" in data["source"]:
             line = json.loads(line)
@@ -65,7 +82,7 @@ def parse(data):
     return ipv4, ipv6
 
 
-def catalog(ipv4, ipv6, profile):
+def catalog(ipv4, ipv6, profile, verbose):
     all_networks = {"ipv4": list(ipv4), "ipv6": list(ipv6)}
     info = {
         "Profile": profile.capitalize(),
@@ -74,27 +91,27 @@ def catalog(ipv4, ipv6, profile):
         "Total number of Networks blocked": sum(len(v) for v in all_networks.values()),
         "Last updated": str(datetime.datetime.now()),
     }
-    data_handler.save(all_networks, info)
+    data_handler.save(all_networks, info, verbose)
 
 
-async def main(function):
+async def main(function, verbose):
     if not os.path.isdir("/var/lib/firewalld-ext/"):
         os.mkdir("/var/lib/firewalld-ext/")
-    print("Loading settings...")
+    if verbose: print("Loading settings...")
     current_ips = data_handler.load("ips")
     profile_name = data_handler.load("profile")
     if profile_name:
         profile = profiles[str(profile_name)]
-        print("Done")
+        if verbose: print("Done")
     else:
         profile_name = "balanced"
         profile = profiles["balanced"]
-        print("No settings found; falling back to default")
+        if verbose: print("No settings found; falling back to default")
     if function != "remove_all":
-        print("Polling sources...")
+        if verbose: print("Polling sources...")
         results = await poll_sources(profile)
-        print("Done")
-        print("Parsing data...")
+        if verbose: print("Done")
+        if verbose: print("Parsing data...")
         parsed = await asyncio.gather(
             *(asyncio.to_thread(parse, result) for result in results)
         )
@@ -104,7 +121,7 @@ async def main(function):
             ipv6 |= i6
         ipv4 = {str(ip) for ip in ipaddress.collapse_addresses(ipv4)}
         ipv6 = {str(ip) for ip in ipaddress.collapse_addresses(ipv6)}
-        print("Done")
+        if verbose: print("Done")
     match function:
         case "refresh":
             if current_ips:
@@ -112,15 +129,15 @@ async def main(function):
                 ipv6.difference_update(set(current_ips["ipv6"]))
                 combined_ipv4 = ipv4.union(set(current_ips["ipv4"]))
                 combined_ipv6 = ipv6.union(set(current_ips["ipv6"]))
-                catalog(combined_ipv4, combined_ipv6, profile_name)
-                apply_rules(ipv4, ipv6, function)
+                catalog(combined_ipv4, combined_ipv6, profile_name, verbose)
+                apply_rules(ipv4, ipv6, function, verbose)
             else:
-                catalog(ipv4, ipv6, profile_name)
-                apply_rules(ipv4, ipv6, "complete_refresh")
+                catalog(ipv4, ipv6, profile_name, verbose)
+                apply_rules(ipv4, ipv6, "complete_refresh", verbose)
 
         case "complete_refresh":
-            catalog(ipv4, ipv6, profile_name)
-            apply_rules(ipv4, ipv6, function)
+            catalog(ipv4, ipv6, profile_name, verbose)
+            apply_rules(ipv4, ipv6, function, verbose)
 
         case "remove_all":
             paths = {
