@@ -40,20 +40,20 @@ It is designed for speed, scalability, and automation—capable of ingesting tho
 ```
 
 firewalld-ext/
-├──  src
-│   └──  firewalld_ext
-│       ├──  apply_rules.py                    # Writes XML ipsets + direct rules, reloads firewalld
-│       ├──  data_handler.py                   # Handles saving/loading IP + stats JSON
-│       ├──  main.py                           # CLI entrypoint (argparse + subcommands)
-│       ├──  sources.py                        # Defines threat intelligence feed URLs
-│       └──  update.py                         # Fetches feeds, parses, deduplicates, applies rules
-├──  systemd
-│   ├──  firewalld-ext.service                 # Systemd service unit
-│   └──  firewalld-ext.timer                   # Systemd timer unit
-├──  LICENSE                                   # License
-├──  pyproject.toml                            # Project metadata + dependencies
-├── 󰂺 README.md
-└──  uv.lock
+├── src
+│   └── firewalld_ext
+│       ├── apply_rules.py                    # Writes XML ipsets + direct rules, reloads firewalld
+│       ├── data_handler.py                   # Handles saving/loading IP + stats JSON
+│       ├── main.py                           # CLI entrypoint (argparse + subcommands)
+│       ├── sources.py                        # Defines threat intelligence feed URLs
+│       └── update.py                         # Fetches feeds, parses, deduplicates, applies rules
+├── systemd
+│   ├── firewalld-ext.service                 # Systemd service unit
+│   └── firewalld-ext.timer                   # Systemd timer unit
+├── LICENSE                                   # License
+├── pyproject.toml                            # Project metadata + dependencies
+├── README.md
+└── uv.lock
 ```
 
 ---
@@ -197,9 +197,9 @@ Last updated: 2025-09-20 11:50:17.685592
 
 * **Open:** Minimal threat feed containing only the bare essentialls.
 * **Lenient:** Expands on the "Open" threat feed and includes IPV6 addresses
-* **Balanced:** The goldilocks zone, A good amount of threat feed covering a wide variety of threats; low to no chance of breaking during everyday usage.
+* **Balanced:** The goldilocks zone, A good amount of threat feeds covering a wide variety of threats; low to no chance of breaking during everyday usage.
 * **Firm:** Expands significantly on the Balanced profile by adding brute force SSH/telnet threat feeds. Expect occassion breakage or slow initial network connection.
-* **Srict:** Generally not reccomended, but it's there if you want it. You'll still be able to access the internet but expecgt frequent breakage and extremely slow initial network connection.
+* **Srict:** Generally not reccomended, but it's there if you want it. You'll still be able to access the internet but expect frequent breakage and extremely slow initial network connection.
 
 
 ## Troubleshooting
