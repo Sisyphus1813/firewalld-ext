@@ -81,10 +81,14 @@ firewalld-ext/
    ```bash
    sudo pip install .
    ```
+   or using `uv`
+   ```bash
+   sudo uv pip install --system .
+   ```
 
    This installs the CLI as `firewalld-ext`.
 
-3. (Optional) Enable automated updates:
+4. (Optional) Enable automated updates:
 
    ```bash
    sudo cp ~/firewalld-ext/systemd/firewalld-ext.service ~/firewalld-ext/systemd/firewalld-ext.timer /etc/systemd/system/
