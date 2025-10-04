@@ -63,7 +63,7 @@ firewalld-ext/
 ### Prerequisites
 
 * **Any firewalld-enabled linux distribution**
-* Python **≥ 3.11**
+* Python **≥ 3.13**
 * Firewalld with nftables backend
 * `pip` or `uv` and `systemd`
 
