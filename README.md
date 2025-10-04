@@ -122,7 +122,7 @@ sudo firewalld-ext --set-profile strict
 sudo firewalld-ext --complete-refresh
 
 # Merge new feeds into existing blocklist
-sudo firewalld-ext --refresh-keep
+sudo firewalld-ext --refresh
 
 # Show statistics
 firewalld-ext --show-stats
