@@ -88,3 +88,5 @@ def main():
             info["Profile"] = args.set_profile
             data_handler.save(None, info, args.verbose)
             print("success")
+        case _:
+            print("Unknown error casued failure to parse argument.")

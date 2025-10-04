@@ -19,6 +19,7 @@ import json
 import ipaddress
 import datetime
 import subprocess
+from systemd import journal
 from firewalld_ext import data_handler
 from firewalld_ext.apply_rules import apply_rules
 from firewalld_ext.sources import profiles
@@ -33,14 +34,22 @@ async def fetch(session, source):
                 data = await response.text()
                 data = {"source": source, "response": data}
                 if not data["response"] and tries < 5:
-                    print(f"Failed to fetch {data["source"]}...retrying")
+                    journal.send(
+                        f"Failed to fetch {data["source"]}...retrying",
+                        PRIORITY=4,
+                        SYSLOG_IDENTIFIER="firewalld-ext"
+                    )
                     await asyncio.sleep(tries)
                     continue
                 break
         except Exception as e:
             data = {"source": source, "response": str(e)}
             if tries < 5:
-                print(f"Failed to fetch {data["source"]}...retrying")
+                journal.send(
+                    f"Failed to fetch {data["source"]}...retrying",
+                    PRIORITY=4,
+                    SYSLOG_IDENTIFIER="firewalld-ext"
+                )
                 await asyncio.sleep(tries)
                 continue
             break
@@ -57,7 +66,11 @@ def parse(data):
     ipv4 = set()
     ipv6 = set()
     if not data["response"]:
-        print(f"Failed to fetch {data["source"]}.")
+        journal.send(
+            f"Never recieved reply from {data["value"]}",
+            PRIORITY=4,
+            SYSLOG_IDENTIFIER="firewalld-ext"
+        )
         return set()
     for line in data["response"].splitlines():
         if "spamhaus" in data["source"]:
@@ -78,6 +91,11 @@ def parse(data):
             elif isinstance(ip, ipaddress.IPv6Network):
                 ipv6.add(ip)
         except ValueError:
+            journal.send(
+                f"parse function threw out invalid IP {line.strip()}",
+                PRIORITY=4,
+                SYSLOG_IDENTIFIER="firewalld-ext"
+            )
             continue
     return ipv4, ipv6
 
@@ -102,26 +120,38 @@ async def main(function, verbose):
     profile_name = data_handler.load("profile")
     if profile_name:
         profile = profiles[str(profile_name)]
-        if verbose: print("Done")
+        if verbose:
+            print("Done")
     else:
         profile_name = "balanced"
         profile = profiles["balanced"]
-        if verbose: print("No settings found; falling back to default")
+        if verbose:
+            print("No settings found; falling back to default")
     if function != "remove_all":
-        if verbose: print("Polling sources...")
+        if verbose:
+            print("Polling sources...")
         results = await poll_sources(profile)
-        if verbose: print("Done")
-        if verbose: print("Parsing data...")
+        if verbose:
+            print("Done")
+        if verbose:
+            print("Parsing data...")
         parsed = await asyncio.gather(
             *(asyncio.to_thread(parse, result) for result in results)
         )
+        if not parsed:
+            journal.log(
+                "Failed to recieve any valid response from any source.",
+                PRIORITY=3,
+                SYSLOG_IDENTIFIER="firewalld-ext"
+            )
         ipv4, ipv6 = set(), set()
         for i4, i6 in parsed:
             ipv4 |= i4
             ipv6 |= i6
         ipv4 = {str(ip) for ip in ipaddress.collapse_addresses(ipv4)}
         ipv6 = {str(ip) for ip in ipaddress.collapse_addresses(ipv6)}
-        if verbose: print("Done")
+        if verbose:
+            print("Done")
     match function:
         case "refresh":
             if current_ips:
@@ -144,6 +174,7 @@ async def main(function, verbose):
                 "/etc/firewalld/direct.xml",
                 "/etc/firewalld/ipsets/blocked_v4.xml",
                 "/etc/firewalld/ipsets/blocked_v6.xml"
+                "/var/lib/firewalld-ext/"
             }
             if not current_ips and not os.path.isfile("/etc/firewalld/direct.xml"):
                 print("No addresses detected in memory to remove!")
