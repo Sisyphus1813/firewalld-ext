@@ -12,8 +12,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-apnic_telnet_bruteforce_ips = "https://feeds.honeynet.asia/bruteforce/latest-telnetbruteforce-unique.csv"
-apnic_ssh_bruteforce_ips = "https://feeds.honeynet.asia/bruteforce/latest-sshbruteforce-unique.csv"
+apnic_telnet_bruteforce_ips = (
+    "https://feeds.honeynet.asia/bruteforce/latest-telnetbruteforce-unique.csv"
+)
+apnic_ssh_bruteforce_ips = (
+    "https://feeds.honeynet.asia/bruteforce/latest-sshbruteforce-unique.csv"
+)
 ipsum_level1 = "https://raw.githubusercontent.com/stamparm/ipsum/master/levels/1.txt"
 ipsum_level2 = "https://raw.githubusercontent.com/stamparm/ipsum/master/levels/2.txt"
 ipsum_level3 = "https://raw.githubusercontent.com/stamparm/ipsum/master/levels/3.txt"
@@ -23,26 +27,16 @@ blocklist_de_all = "https://lists.blocklist.de/lists/all.txt"
 spamhaus_ipv6 = "https://www.spamhaus.org/drop/drop_v6.json"
 
 profiles = {
-    "open": {
-        ipsum_level3
-    },
-    "lenient": {
-        ipsum_level2,
-        spamhaus_ipv6
-    },
-    "balanced": {
-        ipsum_level2,
-        spamhaus_ipv6,
-        emerging_threats,
-        blocklist_de_all
-    },
+    "open": {ipsum_level3},
+    "lenient": {ipsum_level2, spamhaus_ipv6},
+    "balanced": {ipsum_level2, spamhaus_ipv6, emerging_threats, blocklist_de_all},
     "firm": {
         ipsum_level2,
         spamhaus_ipv6,
         emerging_threats,
         blocklist_de_all,
         jamesbrine_ssh_bruteforce_ips,
-        apnic_telnet_bruteforce_ips
+        apnic_telnet_bruteforce_ips,
     },
     "strict": {
         ipsum_level2,
@@ -51,6 +45,6 @@ profiles = {
         blocklist_de_all,
         jamesbrine_ssh_bruteforce_ips,
         apnic_ssh_bruteforce_ips,
-        apnic_telnet_bruteforce_ips
-    }
+        apnic_telnet_bruteforce_ips,
+    },
 }

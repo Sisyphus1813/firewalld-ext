@@ -12,12 +12,12 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from firewalld_ext import update
-from firewalld_ext import data_handler
 import argparse
 import asyncio
-import sys
 import os
+import sys
+
+from firewalld_ext import data_handler, update
 
 parser = argparse.ArgumentParser()
 group = parser.add_mutually_exclusive_group(required=True)
@@ -51,10 +51,9 @@ group.add_argument(
     type=str,
 )
 parser.add_argument(
-    "-v", "--verbose",
-    action="store_true",
-    help="Enable verbose output"
+    "-v", "--verbose", action="store_true", help="Enable verbose output"
 )
+
 
 def main():
     args = parser.parse_args()

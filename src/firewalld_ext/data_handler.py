@@ -14,8 +14,9 @@
 
 import json
 import os
-from systemd import journal
 from json.decoder import JSONDecodeError
+
+from systemd import journal
 
 
 def save(current_ips, info, verbose):
@@ -37,25 +38,25 @@ def save(current_ips, info, verbose):
                 journal.send(
                     f"Permission denied for the following reason: {e}. Please ensure you are running with sudo.",
                     PRIORITY=3,
-                    SYSLOG_IDENTIFIER="firewalld-ext"
+                    SYSLOG_IDENTIFIER="firewalld-ext",
                 )
             case IsADirectoryError():
                 journal.send(
                     "/var/lib/firewalld-ext/ Directory is corrupted. Please run sudo firewalld-ext --remove-all\nthen\n sudo firewalld-ext --complete-reload",
                     PRIORITY=3,
-                    SYSLOG_IDENTIFIER="firewalld-ext"
+                    SYSLOG_IDENTIFIER="firewalld-ext",
                 )
             case OSError():
                 journal.send(
                     f"Fatal OS error occured: {e}",
                     PRIORITY=2,
-                    SYSLOG_IDENTIFIER="firewalld-ext"
+                    SYSLOG_IDENTIFIER="firewalld-ext",
                 )
             case _:
                 journal.send(
                     f"Unhandled exception: {e}",
                     PRIORITY=3,
-                    SYSLOG_IDENTIFIER="firewalld-ext"
+                    SYSLOG_IDENTIFIER="firewalld-ext",
                 )
 
 
@@ -63,7 +64,7 @@ def load(value):
     if os.path.isdir("/var/lib/firewalld-ext"):
         try:
             match value:
-                case "info"|"profile":
+                case "info" | "profile":
                     with open("/var/lib/firewalld-ext/info.json", "r") as f:
                         try:
                             info = json.loads(f.read())
@@ -71,7 +72,7 @@ def load(value):
                             journal.send(
                                 "Failed to json decode /var/lib/firewalld-ext/info.json\nTry sudo firewalld-ext --remove-all\nthen\nsudo firewalld-ext --complete-reload",
                                 PRIORITY=4,
-                                SYSLOG_IDENTIFIER="firewalld-ext"
+                                SYSLOG_IDENTIFIER="firewalld-ext",
                             )
                             return None
                     if value == "profile":
@@ -86,7 +87,7 @@ def load(value):
                             journal.send(
                                 "Failed to json decode /var/lib/firewalld-ext/blocked_ips.json.\nTry sudo firewalld-ext --remove-all\nthen\nsudo firewalld-ext --complete-reload",
                                 PRIORITY=4,
-                                SYSLOG_IDENTIFIER="firewalld-ext"
+                                SYSLOG_IDENTIFIER="firewalld-ext",
                             )
                             return None
                     return current_ips
@@ -94,21 +95,21 @@ def load(value):
                     journal.send(
                         "Invalid value recieved on load() function in data_handler.py",
                         PRIORITY=4,
-                        SYSLOG_IDENTIFIER="firewalld-ext"
+                        SYSLOG_IDENTIFIER="firewalld-ext",
                     )
         except FileNotFoundError:
             match value:
-                case "info"|"profile":
+                case "info" | "profile":
                     journal.send(
                         "Failed to find info.json in application directory.",
                         PRIORITY=4,
-                        SYSLOG_IDENTIFIER="firewalld-ext"
+                        SYSLOG_IDENTIFIER="firewalld-ext",
                     )
                 case "ips":
                     journal.send(
                         "Failed to find blocked_ips.json in application directory",
                         PRIORITY=4,
-                        SYSLOG_IDENTIFIER="firewalld-ext"
+                        SYSLOG_IDENTIFIER="firewalld-ext",
                     )
             return None
     else:
@@ -116,6 +117,6 @@ def load(value):
         journal.send(
             "No application directory found. Making Directory...",
             PRIORITY=4,
-            SYSLOG_IDENTIFIER="firewalld-ext"
+            SYSLOG_IDENTIFIER="firewalld-ext",
         )
         return None

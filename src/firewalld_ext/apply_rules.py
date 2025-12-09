@@ -12,10 +12,11 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-from systemd import journal
-import subprocess
-import shutil
 import os
+import shutil
+import subprocess
+
+from systemd import journal
 
 
 def apply_rules(ipv4=None, ipv6=None, function=None, verbose=False):
@@ -98,35 +99,35 @@ def apply_rules(ipv4=None, ipv6=None, function=None, verbose=False):
         journal.send(
             f"Permission denied while applying rules: {e}. Run with sudo.",
             PRIORITY=3,
-            SYSLOG_IDENTIFIER="firewalld-ext"
+            SYSLOG_IDENTIFIER="firewalld-ext",
         )
         return
     except FileNotFoundError as e:
         journal.send(
             f"Missing required firewalld file or directory: {e}.",
             PRIORITY=4,
-            SYSLOG_IDENTIFIER="firewalld-ext"
+            SYSLOG_IDENTIFIER="firewalld-ext",
         )
         return
     except IsADirectoryError as e:
         journal.send(
             f"Corrupted firewalld directory structure: {e}. Run sudo firewalld-ext --remove-all\nthen\nsudo firewalld-ext --complete-reload",
             PRIORITY=3,
-            SYSLOG_IDENTIFIER="firewalld-ext"
+            SYSLOG_IDENTIFIER="firewalld-ext",
         )
         return
     except OSError as e:
         journal.send(
             f"OS-level error while writing firewalld rules: {e}",
             PRIORITY=2,
-            SYSLOG_IDENTIFIER="firewalld-ext"
+            SYSLOG_IDENTIFIER="firewalld-ext",
         )
         return
     except Exception as e:
         journal.send(
             f"Unhandled exception in apply_rules(): {e}",
             PRIORITY=3,
-            SYSLOG_IDENTIFIER="firewalld-ext"
+            SYSLOG_IDENTIFIER="firewalld-ext",
         )
         return
 
@@ -143,7 +144,7 @@ def apply_rules(ipv4=None, ipv6=None, function=None, verbose=False):
         journal.send(
             f"Failed to replace temporary ipset files: {e}",
             PRIORITY=3,
-            SYSLOG_IDENTIFIER="firewalld-ext"
+            SYSLOG_IDENTIFIER="firewalld-ext",
         )
         return
 
@@ -157,11 +158,11 @@ def apply_rules(ipv4=None, ipv6=None, function=None, verbose=False):
         journal.send(
             f"firewall-cmd reload failed with exit code {e.returncode}: {e}",
             PRIORITY=3,
-            SYSLOG_IDENTIFIER="firewalld-ext"
+            SYSLOG_IDENTIFIER="firewalld-ext",
         )
     except Exception as e:
         journal.send(
             f"Unexpected error running firewall-cmd reload: {e}",
             PRIORITY=3,
-            SYSLOG_IDENTIFIER="firewalld-ext"
+            SYSLOG_IDENTIFIER="firewalld-ext",
         )

@@ -12,17 +12,19 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import os
 import asyncio
-import aiohttp
-import json
-import ipaddress
 import datetime
+import ipaddress
+import json
+import os
 import subprocess
-from systemd import journal
+
+import aiohttp
+
 from firewalld_ext import data_handler
 from firewalld_ext.apply_rules import apply_rules
 from firewalld_ext.sources import profiles
+from systemd import journal
 
 
 async def fetch(session, source):
@@ -35,9 +37,9 @@ async def fetch(session, source):
                 data = {"source": source, "response": data}
                 if not data["response"] and tries < 5:
                     journal.send(
-                        f"Failed to fetch {data["source"]}...retrying",
+                        f"Failed to fetch {data['source']}...retrying",
                         PRIORITY=4,
-                        SYSLOG_IDENTIFIER="firewalld-ext"
+                        SYSLOG_IDENTIFIER="firewalld-ext",
                     )
                     await asyncio.sleep(tries)
                     continue
@@ -46,9 +48,9 @@ async def fetch(session, source):
             data = {"source": source, "response": str(e)}
             if tries < 5:
                 journal.send(
-                    f"Failed to fetch {data["source"]}...retrying",
+                    f"Failed to fetch {data['source']}...retrying",
                     PRIORITY=4,
-                    SYSLOG_IDENTIFIER="firewalld-ext"
+                    SYSLOG_IDENTIFIER="firewalld-ext",
                 )
                 await asyncio.sleep(tries)
                 continue
@@ -67,9 +69,9 @@ def parse(data):
     ipv6 = set()
     if not data["response"]:
         journal.send(
-            f"Never recieved reply from {data["value"]}",
+            f"Never recieved reply from {data['value']}",
             PRIORITY=4,
-            SYSLOG_IDENTIFIER="firewalld-ext"
+            SYSLOG_IDENTIFIER="firewalld-ext",
         )
         return set()
     for line in data["response"].splitlines():
@@ -94,7 +96,7 @@ def parse(data):
             journal.send(
                 f"parse function threw out invalid IP {line.strip()}",
                 PRIORITY=4,
-                SYSLOG_IDENTIFIER="firewalld-ext"
+                SYSLOG_IDENTIFIER="firewalld-ext",
             )
             continue
     return ipv4, ipv6
@@ -115,7 +117,8 @@ def catalog(ipv4, ipv6, profile, verbose):
 async def main(function, verbose):
     if not os.path.isdir("/var/lib/firewalld-ext/"):
         os.mkdir("/var/lib/firewalld-ext/")
-    if verbose: print("Loading settings...")
+    if verbose:
+        print("Loading settings...")
     current_ips = data_handler.load("ips")
     profile_name = data_handler.load("profile")
     if profile_name:
@@ -139,10 +142,10 @@ async def main(function, verbose):
             *(asyncio.to_thread(parse, result) for result in results)
         )
         if not parsed:
-            journal.log(
+            journal.send(
                 "Failed to recieve any valid response from any source.",
                 PRIORITY=3,
-                SYSLOG_IDENTIFIER="firewalld-ext"
+                SYSLOG_IDENTIFIER="firewalld-ext",
             )
         ipv4, ipv6 = set(), set()
         for i4, i6 in parsed:
@@ -173,8 +176,7 @@ async def main(function, verbose):
             paths = {
                 "/etc/firewalld/direct.xml",
                 "/etc/firewalld/ipsets/blocked_v4.xml",
-                "/etc/firewalld/ipsets/blocked_v6.xml"
-                "/var/lib/firewalld-ext/"
+                "/etc/firewalld/ipsets/blocked_v6.xml/var/lib/firewalld-ext/",
             }
             if not current_ips and not os.path.isfile("/etc/firewalld/direct.xml"):
                 print("No addresses detected in memory to remove!")
