@@ -13,17 +13,17 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import json
-import os
+import sys
 from json.decoder import JSONDecodeError
+from typing import Literal
 
 from systemd import journal
 
 
 def save(current_ips, info, verbose):
     if verbose:
-        print("Saving settings...")
+        print("saving settings...")
     try:
-        os.makedirs("/var/lib/firewalld-ext", exist_ok=True)
         if current_ips:
             with open("/var/lib/firewalld-ext/blocked_ips.json", "w") as f:
                 json.dump(current_ips, f)
@@ -31,92 +31,58 @@ def save(current_ips, info, verbose):
             with open("/var/lib/firewalld-ext/info.json", "w") as f:
                 json.dump(info, f)
         if verbose:
-            print("Done")
+            print("done")
     except Exception as e:
-        match e:
-            case PermissionError():
-                journal.send(
-                    f"Permission denied for the following reason: {e}. Please ensure you are running with sudo.",
-                    PRIORITY=3,
-                    SYSLOG_IDENTIFIER="firewalld-ext",
-                )
-            case IsADirectoryError():
-                journal.send(
-                    "/var/lib/firewalld-ext/ Directory is corrupted. Please run sudo firewalld-ext --remove-all\nthen\n sudo firewalld-ext --complete-reload",
-                    PRIORITY=3,
-                    SYSLOG_IDENTIFIER="firewalld-ext",
-                )
-            case OSError():
-                journal.send(
-                    f"Fatal OS error occured: {e}",
-                    PRIORITY=2,
-                    SYSLOG_IDENTIFIER="firewalld-ext",
-                )
-            case _:
-                journal.send(
-                    f"Unhandled exception: {e}",
-                    PRIORITY=3,
-                    SYSLOG_IDENTIFIER="firewalld-ext",
-                )
-
-
-def load(value):
-    if os.path.isdir("/var/lib/firewalld-ext"):
-        try:
-            match value:
-                case "info" | "profile":
-                    with open("/var/lib/firewalld-ext/info.json", "r") as f:
-                        try:
-                            info = json.loads(f.read())
-                        except JSONDecodeError:
-                            journal.send(
-                                "Failed to json decode /var/lib/firewalld-ext/info.json\nTry sudo firewalld-ext --remove-all\nthen\nsudo firewalld-ext --complete-reload",
-                                PRIORITY=4,
-                                SYSLOG_IDENTIFIER="firewalld-ext",
-                            )
-                            return None
-                    if value == "profile":
-                        return info["Profile"].lower()
-                    else:
-                        return info
-                case "ips":
-                    with open("/var/lib/firewalld-ext/blocked_ips.json", "r") as f:
-                        try:
-                            current_ips = json.loads(f.read())
-                        except JSONDecodeError:
-                            journal.send(
-                                "Failed to json decode /var/lib/firewalld-ext/blocked_ips.json.\nTry sudo firewalld-ext --remove-all\nthen\nsudo firewalld-ext --complete-reload",
-                                PRIORITY=4,
-                                SYSLOG_IDENTIFIER="firewalld-ext",
-                            )
-                            return None
-                    return current_ips
-                case _:
-                    journal.send(
-                        "Invalid value recieved on load() function in data_handler.py",
-                        PRIORITY=4,
-                        SYSLOG_IDENTIFIER="firewalld-ext",
-                    )
-        except FileNotFoundError:
-            match value:
-                case "info" | "profile":
-                    journal.send(
-                        "Failed to find info.json in application directory.",
-                        PRIORITY=4,
-                        SYSLOG_IDENTIFIER="firewalld-ext",
-                    )
-                case "ips":
-                    journal.send(
-                        "Failed to find blocked_ips.json in application directory",
-                        PRIORITY=4,
-                        SYSLOG_IDENTIFIER="firewalld-ext",
-                    )
-            return None
-    else:
-        os.makedirs("/var/lib/firewalld-ext/")
         journal.send(
-            "No application directory found. Making Directory...",
-            PRIORITY=4,
+            f"/var/lib/firewalld-ext/ directory possibly corrupted. {e}",
+            PRIORITY=3,
             SYSLOG_IDENTIFIER="firewalld-ext",
         )
+        sys.exit(1)
+
+
+def load(value: Literal["info", "profile", "ips"]):
+    try:
+        match value:
+            case "info" | "profile":
+                with open("/var/lib/firewalld-ext/info.json", "r") as f:
+                    try:
+                        data = json.loads(f.read())
+                        if value == "profile":
+                            return data["Profile"].lower()
+                        else:
+                            return data
+                    except JSONDecodeError:
+                        journal.send(
+                            "Failed to json decode /var/lib/firewalld-ext/info.json\nTry sudo firewalld-ext --remove-all\nthen\nsudo firewalld-ext --complete-reload",
+                            PRIORITY=4,
+                            SYSLOG_IDENTIFIER="firewalld-ext",
+                        )
+                        return None
+            case "ips":
+                with open("/var/lib/firewalld-ext/blocked_ips.json", "r") as f:
+                    try:
+                        current_ips = json.loads(f.read())
+                        return current_ips
+                    except JSONDecodeError:
+                        journal.send(
+                            "Failed to json decode /var/lib/firewalld-ext/blocked_ips.json.\nTry sudo firewalld-ext --remove-all\nthen\nsudo firewalld-ext --complete-reload",
+                            PRIORITY=4,
+                            SYSLOG_IDENTIFIER="firewalld-ext",
+                        )
+                        return None
+    except FileNotFoundError:
+        match value:
+            case "info" | "profile":
+                journal.send(
+                    "Failed to find info.json in application directory.",
+                    PRIORITY=4,
+                    SYSLOG_IDENTIFIER="firewalld-ext",
+                )
+            case "ips":
+                journal.send(
+                    "Failed to find blocked_ips.json in application directory",
+                    PRIORITY=4,
+                    SYSLOG_IDENTIFIER="firewalld-ext",
+                )
         return None

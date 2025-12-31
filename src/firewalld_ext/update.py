@@ -16,8 +16,7 @@ import asyncio
 import datetime
 import ipaddress
 import json
-import os
-import subprocess
+import sys
 
 import aiohttp
 
@@ -27,7 +26,7 @@ from firewalld_ext.sources import profiles
 from systemd import journal
 
 
-async def fetch(session, source):
+async def fetch(session: aiohttp.ClientSession, source: str):
     tries = 0
     while True:
         tries += 1
@@ -58,7 +57,7 @@ async def fetch(session, source):
     return data
 
 
-async def poll_sources(sources):
+async def poll_sources(sources: set[str]):
     async with aiohttp.ClientSession() as session:
         tasks = {fetch(session, source) for source in sources}
         return await asyncio.gather(*tasks)
@@ -69,7 +68,7 @@ def parse(data):
     ipv6 = set()
     if not data["response"]:
         journal.send(
-            f"Never recieved reply from {data['value']}",
+            f"Never recieved reply from {data['source']}",
             PRIORITY=4,
             SYSLOG_IDENTIFIER="firewalld-ext",
         )
@@ -102,7 +101,7 @@ def parse(data):
     return ipv4, ipv6
 
 
-def catalog(ipv4, ipv6, profile, verbose):
+def catalog(ipv4: set[str], ipv6: set[str], profile, verbose):
     all_networks = {"ipv4": list(ipv4), "ipv6": list(ipv6)}
     info = {
         "Profile": profile.capitalize(),
@@ -114,76 +113,48 @@ def catalog(ipv4, ipv6, profile, verbose):
     data_handler.save(all_networks, info, verbose)
 
 
-async def main(function, verbose):
-    if not os.path.isdir("/var/lib/firewalld-ext/"):
-        os.mkdir("/var/lib/firewalld-ext/")
+async def main(verbose: bool):
     if verbose:
-        print("Loading settings...")
-    current_ips = data_handler.load("ips")
+        print("loading settings...")
     profile_name = data_handler.load("profile")
     if profile_name:
         profile = profiles[str(profile_name)]
         if verbose:
-            print("Done")
+            print("done")
     else:
         profile_name = "balanced"
         profile = profiles["balanced"]
-        if verbose:
-            print("No settings found; falling back to default")
-    if function != "remove_all":
-        if verbose:
-            print("Polling sources...")
-        results = await poll_sources(profile)
-        if verbose:
-            print("Done")
-        if verbose:
-            print("Parsing data...")
-        parsed = await asyncio.gather(
-            *(asyncio.to_thread(parse, result) for result in results)
+        journal.send(
+            "No set profile found, falling back to default...",
+            PRIORITY=6,
+            SYSLOG_IDENTIFIER="firewalld-ext",
         )
-        if not parsed:
-            journal.send(
-                "Failed to recieve any valid response from any source.",
-                PRIORITY=3,
-                SYSLOG_IDENTIFIER="firewalld-ext",
-            )
-        ipv4, ipv6 = set(), set()
-        for i4, i6 in parsed:
-            ipv4 |= i4
-            ipv6 |= i6
-        ipv4 = {str(ip) for ip in ipaddress.collapse_addresses(ipv4)}
-        ipv6 = {str(ip) for ip in ipaddress.collapse_addresses(ipv6)}
         if verbose:
-            print("Done")
-    match function:
-        case "refresh":
-            if current_ips:
-                ipv4.difference_update(set(current_ips["ipv4"]))
-                ipv6.difference_update(set(current_ips["ipv6"]))
-                combined_ipv4 = ipv4.union(set(current_ips["ipv4"]))
-                combined_ipv6 = ipv6.union(set(current_ips["ipv6"]))
-                catalog(combined_ipv4, combined_ipv6, profile_name, verbose)
-                apply_rules(ipv4, ipv6, function, verbose)
-            else:
-                catalog(ipv4, ipv6, profile_name, verbose)
-                apply_rules(ipv4, ipv6, "complete_refresh", verbose)
-
-        case "complete_refresh":
-            catalog(ipv4, ipv6, profile_name, verbose)
-            apply_rules(ipv4, ipv6, function, verbose)
-
-        case "remove_all":
-            paths = {
-                "/etc/firewalld/direct.xml",
-                "/etc/firewalld/ipsets/blocked_v4.xml",
-                "/etc/firewalld/ipsets/blocked_v6.xml/var/lib/firewalld-ext/",
-            }
-            if not current_ips and not os.path.isfile("/etc/firewalld/direct.xml"):
-                print("No addresses detected in memory to remove!")
-                return
-            for path in paths:
-                try:
-                    os.remove(path)
-                except FileNotFoundError:
-                    print(f"{path} does not exist, skipping...")
-            subprocess.run(["sudo", "firewall-cmd", "--complete-reload"])
+            print("No set profile found, falling back to default...")
+    if verbose:
+        print("polling sources...")
+    results = await poll_sources(profile)
+    if verbose:
+        print("done")
+        print("parsing data...")
+    parsed = await asyncio.gather(
+        *(asyncio.to_thread(parse, result) for result in results)
+    )
+    if not parsed:
+        journal.send(
+            "Failed to recieve any valid response from any source.",
+            PRIORITY=3,
+            SYSLOG_IDENTIFIER="firewalld-ext",
+        )
+        print("Failed to recieve any valid response from any source, exiting...")
+        sys.exit(1)
+    ipv4, ipv6 = set(), set()
+    for i4, i6 in parsed:
+        ipv4 |= i4
+        ipv6 |= i6
+    ipv4 = {str(ip) for ip in ipaddress.collapse_addresses(ipv4)}
+    ipv6 = {str(ip) for ip in ipaddress.collapse_addresses(ipv6)}
+    if verbose:
+        print("done")
+    catalog(ipv4, ipv6, profile_name, verbose)
+    apply_rules(ipv4, ipv6)

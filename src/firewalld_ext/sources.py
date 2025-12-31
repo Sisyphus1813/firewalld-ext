@@ -12,6 +12,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+from typing import Dict
+
 apnic_telnet_bruteforce_ips = (
     "https://feeds.honeynet.asia/bruteforce/latest-telnetbruteforce-unique.csv"
 )
@@ -26,7 +28,7 @@ jamesbrine_ssh_bruteforce_ips = "https://jamesbrine.com.au/csv"
 blocklist_de_all = "https://lists.blocklist.de/lists/all.txt"
 spamhaus_ipv6 = "https://www.spamhaus.org/drop/drop_v6.json"
 
-profiles = {
+profiles: Dict[str, set[str]] = {
     "open": {ipsum_level3},
     "lenient": {ipsum_level2, spamhaus_ipv6},
     "balanced": {ipsum_level2, spamhaus_ipv6, emerging_threats, blocklist_de_all},

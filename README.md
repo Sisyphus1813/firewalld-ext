@@ -1,247 +1,118 @@
 # firewalld-ext
 
-**firewalld-ext** is a lightweight, asynchronous Python extension for [firewalld](https://firewalld.org/) that automatically fetches, parses, and applies threat intelligence feeds (IPv4 & IPv6 addresses/subnets) to blocklists managed by **ipsets** inside firewalld.
-
-It is designed for speed, scalability, and automation—capable of ingesting thousands of IPs and CIDR ranges, deduplicating them, collapsing overlapping networks, and enforcing them via nftables-compatible ipsets.
+**firewalld-ext** is a lightweight, asynchronous Python extension for [firewalld](https://firewalld.org/) that automatically fetches, parses, and applies open source threat intelligence feeds (IPv4 & IPv6 addresses/subnets) to blocklists managed by **ipsets** inside firewalld.
 
 ---
 
-## Features
-
-* **Automated Threat Feed Ingestion**
-  Downloads malicious IP/CIDR feeds from multiple sources (e.g., [stamparm/ipsum](https://github.com/stamparm/ipsum), Spamhaus DROP lists).
-
-* **Asynchronous Fetching**
-  Uses `asyncio` + `aiohttp` to concurrently pull feeds for speed.
-
-* **Parsing & Deduplication**
-
-  * Validates addresses using Python’s `ipaddress` module.
-  * Separates IPv4 and IPv6 into distinct sets.
-  * Collapses overlapping networks (`ipaddress.collapse_addresses`).
-
-* **Direct Integration with firewalld**
-
-  * Writes to `/etc/firewalld/direct.xml` and `/etc/firewalld/ipsets/blocked_{v4/v6}.xml`.
-  * Applies via `firewall-cmd --complete-reload`.
-
-* **Persistent Storage & Statistics**
-
-  * Stores blocklists and metadata in `/var/lib/firewalld-ext/`.
-  * Tracks counts of IPv4, IPv6, and total blocked networks, plus last update timestamp.
-
-* **Systemd Integration**
-  Comes with `firewalld-ext.service` and `firewalld-ext.timer` for periodic updates.
+## Overview
+- Designed to make open-source threat intelligence easy to apply locally without sacrificing customization.
+- Automatically polls, parses, and normalizes multiple open-source threat intelligence feeds.
+- Writes reported malicious IPv4 and IPv6 subnets directly into firewalld-managed ipsets.
+- Supports multiple preconfigured threat profiles, allowing users to control how aggressively intelligence is applied.
 
 ---
 
-## Project Structure
+## Requirements
 
-```
-
-firewalld-ext/
-├── src
-│   └── firewalld_ext
-│       ├── apply_rules.py                    # Writes XML ipsets + direct rules, reloads firewalld
-│       ├── data_handler.py                   # Handles saving/loading IP + stats JSON
-│       ├── main.py                           # CLI entrypoint (argparse + subcommands)
-│       ├── sources.py                        # Defines threat intelligence feed URLs
-│       └── update.py                         # Fetches feeds, parses, deduplicates, applies rules
-├── systemd
-│   ├── firewalld-ext.service                 # Systemd service unit
-│   └── firewalld-ext.timer                   # Systemd timer unit
-├── LICENSE                                   # License
-├── pyproject.toml                            # Project metadata + dependencies
-├── README.md
-└── uv.lock
-```
+- A firewalld and (optionally) systemd enabled linux distribution
+- Python 3.13+
 
 ---
 
 ## Installation
+### Clone Repository
 
-### Prerequisites
+```bash
+git clone https://github.com/Sisyphus1813/firewalld-ext.git  
+cd firewalld-ext
+```
 
-* **Any firewalld-enabled linux distribution**
-* Python **≥ 3.13**
-* Firewalld with nftables backend
-* `pip` or `uv` and `systemd`
+### Install
+```bash
+sudo pip install .
+```
+or using `uv`
+```bash
+sudo uv pip install --system .
+```
+### enable systemd service (optional)
+```bash
+sudo install -m 0644 ~/firewalld-ext/systemd/firewalld-ext.service \
+               ~/firewalld-ext/systemd/firewalld-ext.timer \
+               /etc/systemd/system/
+sudo systemctl enable --now firewalld-ext.timer
+```
+---
 
-### Steps
+## Configuration
 
-1. Clone the repo:
+firewalld-ext includes five preconfigured threat profiles, each corresponding to a different combination of up to nine supported open-source threat intelligence feeds:
 
-   ```bash
-   git clone https://github.com/Sisyphus1813/firewalld-ext.git
-   cd firewalld-ext
-   ```
+- `open`
+- `lenient`
+- `balanced`
+- `firm`
+- `strict`
 
-2. Install system-wide:
+Each profile represents an increasing number of sources, allowing users to balance coverage, false positives, and operational impact. Most users will achieve the best balance of coverage, low false positives, and minimal ipset overhead by using the default `balanced` profile.
 
-   ```bash
-   sudo pip install .
-   ```
-   or using `uv`
-   ```bash
-   sudo uv pip install --system .
-   ```
-
-   This installs the CLI as `firewalld-ext`.
-
-4. (Optional) Enable automated updates:
-
-   ```bash
-   sudo cp ~/firewalld-ext/systemd/firewalld-ext.service ~/firewalld-ext/systemd/firewalld-ext.timer /etc/systemd/system/
-   sudo systemctl enable --now firewalld-ext.timer
-   ```
+You can change your threat profile easily like so:
+```bash
+sudo firewalld-ext set-profile <PROFILE>
+sudo firewalld-ext --refresh
+```
 
 ---
 
 ## Usage
 
-### CLI Commands
-
 | Command                                       | Description                                           |
 | ----------------------------------            | ----------------------------------------------------- |
-| `sudo firewalld-ext --set-proifle <PROFILE>`  | Switch to a different threat feed profile             |
-| `sudo firewalld-ext --refresh`                | Update feeds, append new entries, preserve old ones   |
-| `sudo firewalld-ext --complete-refresh`       | Purge and rebuild blocklists from scratch             |
-| `sudo firewalld-ext --remove-all`             | Remove all firewalld-ext ipsets and rules             |
+| `sudo firewalld-ext --set-profile <PROFILE>`  | Set the active profile to PROFILE             |
+| `sudo firewalld-ext --refresh`                | Update blocked CIDRs    |
+| `sudo firewalld-ext --remove-all`             | Completely revert any changes made to firewalld              |
 | `firewalld-ext --status`                      | Show firewalld-ext status and statistics              |
-| `firewalld-ext --show-ips`                    | Print all blocked IPs/subnets                         |
+| `firewalld-ext --show-subnets`                    | Dump all currently blocked CIDR ranges to stdout                         |
 
 Any of the above commands can be supplemented with the `--verbose` or `-v` flag to enable verbose output.
 
-### Example
-
-```bash
-# Change to the strict threat feed
-sudo firewalld-ext --set-profile strict
-
-# Replace current blocklist with latest feeds
-sudo firewalld-ext --complete-refresh
-
-# Merge new feeds into existing blocklist
-sudo firewalld-ext --refresh
-
-# Show statistics
-firewalld-ext --show-stats
-```
-
 ---
 
-## Internals
+## Checking Logs
 
-1. **Fetching**
-
-   * Uses `aiohttp.ClientSession()` to asynchronously grab raw text or JSON feeds.
-
-2. **Parsing**
-
-   * Detects whether feed line is IPv4 or IPv6.
-   * Handles JSON feeds (e.g., Spamhaus v6) differently from plain text.
-   * Skips invalid entries.
-
-3. **Deduplication**
-
-   * `collapse_addresses()` merges overlapping subnets (`192.168.0.0/24` absorbs `192.168.0.1/32`).
-   * Ensures minimal set of unique networks.
-
-4. **Cataloging**
-
-   * Saves results into `/var/lib/firewalld-ext/{blocked_ips.json, info.json}`.
-   * Tracks metadata (counts, timestamp).
-
-5. **Rule Application**
-
-   * Writes ipsets into `/etc/firewalld/ipsets/blocked_v4.xml` and `/etc/firewalld/ipsets/blocked_v6.xml`.
-   * Writes direct rules into `/etc/firewalld/direct.xml` (INPUT/OUTPUT drops).
-   * Calls `firewall-cmd --complete-reload`.
-
----
-
-## Systemd Integration
-
-### Service (`firewalld-ext.service`)
-
-Runs the updater as a systemd-managed service.
-
-### Timer (`firewalld-ext.timer`)
-
-Schedules automatic execution (e.g., hourly/daily depending on your setup).
-
-Enable both:
-
-```bash
-sudo systemctl enable --now firewalld-ext.timer
-```
-
-Check logs:
-
-```bash
-journalctl -u firewalld-ext.service -f
-```
-
----
-
-## Example Stats Output
-
-```bash
-$ firewalld-ext --status
-Profile: Balanced
-IPV4 Networks: 34011
-IPV6 Networks: 78
-Total number of Networks blocked: 34089
-Last updated: 2025-09-20 11:50:17.685592
-```
-
----
-
-## Threat feed profiles
-
-* **Open:** Minimal threat feed containing only the bare essentialls.
-* **Lenient:** Expands on the "Open" threat feed and includes IPV6 addresses
-* **Balanced:** The goldilocks zone, A good amount of threat feeds covering a wide variety of threats; low to no chance of breaking during everyday usage.
-* **Firm:** Expands significantly on the Balanced profile by adding brute force SSH/telnet threat feeds. Expect occassion breakage or slow initial network connection.
-* **Srict:** Generally not reccomended, but it's there if you want it. You'll still be able to access the internet but expect frequent breakage and extremely slow initial network connection.
-
-
-## Troubleshooting
-
-* **Problem:** `Failed to write new rules to ipsets!`
-  **Fix:** Remove stale ipset files and retry.
+firewalld-ext logs any debug or error information to system journal. To view:
 
   ```bash
-  sudo rm -f /etc/firewalld/direct.xml /etc/firewalld/ipsets/blocked_v4.xml /etc/firewalld/ipsets/blocked_v6.xml
-  sudo firewall-cmd --complete-reload
-  sudo firewalld-ext --complete-refresh
+  sudo journalctl -t firewalld-ext
   ```
+---
 
-* **Problem:** `ModuleNotFoundError` when running systemd.
-  **Fix:** Ensure package was installed system-wide with `sudo pip install .`.
+## Limitations
 
-* **Problem:** No stats or IPs showing.
-  **Fix:** `sudo firewalld-ext --complete-refresh`.
+- Linux native; Windows support is not planned and will not be added.
+- firewalld is the primary performance bottleneck of this project:
+	- when managing large ipsets (hundreds of thousands of subnets) network throughput and overall connectivity may suffer
+	- complete reloads are necessary to apply updated ipsets; these can take several seconds with large ipsets
 
-* **Problem:** Ipsets failed to update due to overlapping subenets.
-  **Fix:** This can happen if you attempt to --refresh after changing threat feed profiles before calling --complete-refresh. Simply `sudo firewalld-ext --complete-refresh`
+These limitations are inherent to firewalld itself. Addressing them is explicitly out of scope for this project.
+firewalld-ext, as the name suggests, is intended to extend the capabilities of firewalld, not replace it, re-architect it, or work around its internal design.
 
 ---
 
 ## Contributing
-
 Contributions are welcome! If you’d like to add features, fix bugs, or improve documentation:
+- Fork the repository
+- Create a feature branch (git checkout -b my-feature)
+- Commit your changes with clear messages
+- Submit a pull request
 
-Fork the repository.
+Please follow Python best practices and ensure your changes don’t break existing functionality. This project relies on [Ruff](https://astral.sh/ruff) for formatting and linting.
 
-Create a feature branch (git checkout -b my-feature).
 
-Commit your changes with clear messages.
-
-Submit a pull request.
-
-Please follow Python best practices and ensure your changes don’t break existing functionality.
+---
 
 ## License
 
-This project is licensed under the GNU General Public License v3.0 - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the GNU General Public License v3.0 or later (GPL-3.0-or-later).
+
+See the [LICENSE](LICENSE)

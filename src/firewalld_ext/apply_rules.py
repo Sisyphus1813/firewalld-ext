@@ -13,131 +13,90 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
-import shutil
 import subprocess
+import sys
+from xml.parsers.expat import ExpatError, ParserCreate
 
 from systemd import journal
 
 
-def apply_rules(ipv4=None, ipv6=None, function=None, verbose=False):
+def validate_form(path, verbose):
     try:
-        if function == "complete_refresh":
-            if verbose:
-                print("Writing rules to firewalld")
-            with open("/etc/firewalld/.direct.xml.temp", "w") as f:
-                f.write('<?xml version="1.0" encoding="utf-8"?>\n')
-                f.write("<direct>\n")
-                f.write(
-                    '   <rule ipv="ipv4" table="filter" chain="INPUT" priority="0">-m set --match-set blocked_v4 src -j DROP</rule>\n'
-                )
-                f.write(
-                    '   <rule ipv="ipv4" table="filter" chain="OUTPUT" priority="0">-m set --match-set blocked_v4 dst -j DROP</rule>\n'
-                )
-                f.write(
-                    '   <rule ipv="ipv6" table="filter" chain="INPUT" priority="0">-m set --match-set blocked_v6 src -j DROP</rule>\n'
-                )
-                f.write(
-                    '   <rule ipv="ipv6" table="filter" chain="OUTPUT" priority="0">-m set --match-set blocked_v6 dst -j DROP</rule>\n'
-                )
-                f.write("</direct>\n")
-            os.replace("/etc/firewalld/.direct.xml.temp", "/etc/firewalld/direct.xml")
-            with open("/etc/firewalld/ipsets/.blocked_v4.xml.tmp", "w") as f:
-                f.write('<?xml version="1.0" encoding="utf-8"?>\n')
-                f.write('<ipset type="hash:net">\n')
-                f.write('  <option name="family" value="inet"/>\n')
-                f.write('  <option name="maxelem" value="200000"/>\n')
-            with open("/etc/firewalld/ipsets/.blocked_v6.xml.tmp", "w") as f:
-                f.write('<?xml version="1.0" encoding="utf-8"?>\n')
-                f.write('<ipset type="hash:net">\n')
-                f.write('  <option name="family" value="inet6"/>\n')
-                f.write('  <option name="maxelem" value="200000"/>\n')
-            if verbose:
-                print("Done")
-
-        elif function == "refresh":
-            shutil.copy(
-                "/etc/firewalld/ipsets/blocked_v4.xml",
-                "/etc/firewalld/ipsets/.blocked_v4.xml.tmp",
-            )
-            shutil.copy(
-                "/etc/firewalld/ipsets/blocked_v6.xml",
-                "/etc/firewalld/ipsets/.blocked_v6.xml.tmp",
-            )
-            with open("/etc/firewalld/ipsets/.blocked_v4.xml.tmp", "rb+") as f:
-                lines = f.readlines()
-                if lines and lines[-1].strip() == b"</ipset>":
-                    f.seek(0)
-                    f.writelines(lines[:-1])
-                    f.truncate()
-            with open("/etc/firewalld/ipsets/.blocked_v6.xml.tmp", "rb+") as f:
-                lines = f.readlines()
-                if lines and lines[-1].strip() == b"</ipset>":
-                    f.seek(0)
-                    f.writelines(lines[:-1])
-                    f.truncate()
-
-        if verbose:
-            print("Updating ipsets")
-
-        if ipv4:
-            with open("/etc/firewalld/ipsets/.blocked_v4.xml.tmp", "a") as f:
-                for ip in ipv4:
-                    f.write(f"  <entry>{ip}</entry>\n")
-
-        if ipv6:
-            with open("/etc/firewalld/ipsets/.blocked_v6.xml.tmp", "a") as f:
-                for ip in ipv6:
-                    f.write(f"  <entry>{ip}</entry>\n")
-
-        with open("/etc/firewalld/ipsets/.blocked_v4.xml.tmp", "a") as f:
-            f.write("</ipset>\n")
-
-        with open("/etc/firewalld/ipsets/.blocked_v6.xml.tmp", "a") as f:
-            f.write("</ipset>\n")
-
-    except PermissionError as e:
+        p = ParserCreate()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                p.Parse(chunk, False)
+        p.Parse(b"", True)
+    except ExpatError as e:
         journal.send(
-            f"Permission denied while applying rules: {e}. Run with sudo.",
+            f"Failed to properly format {path}; aborting atomic operation.\n{e}",
             PRIORITY=3,
             SYSLOG_IDENTIFIER="firewalld-ext",
         )
-        return
-    except FileNotFoundError as e:
-        journal.send(
-            f"Missing required firewalld file or directory: {e}.",
-            PRIORITY=4,
-            SYSLOG_IDENTIFIER="firewalld-ext",
-        )
-        return
-    except IsADirectoryError as e:
-        journal.send(
-            f"Corrupted firewalld directory structure: {e}. Run sudo firewalld-ext --remove-all\nthen\nsudo firewalld-ext --complete-reload",
-            PRIORITY=3,
-            SYSLOG_IDENTIFIER="firewalld-ext",
-        )
-        return
-    except OSError as e:
-        journal.send(
-            f"OS-level error while writing firewalld rules: {e}",
-            PRIORITY=2,
-            SYSLOG_IDENTIFIER="firewalld-ext",
-        )
-        return
-    except Exception as e:
-        journal.send(
-            f"Unhandled exception in apply_rules(): {e}",
-            PRIORITY=3,
-            SYSLOG_IDENTIFIER="firewalld-ext",
-        )
-        return
+        sys.exit(1)
+    if verbose:
+        print(f"sucessfully validated {path}")
 
+
+def create_direct_xml(verbose: bool):
+    if verbose:
+        print("writing direct rules...")
+    lines = [
+        '<?xml version="1.0" encoding="utf-8"?>\n',
+        "<direct>\n",
+        '   <rule ipv="ipv4" table="filter" chain="INPUT" priority="0">-m set --match-set blocked_v4 src -j DROP</rule>\n',
+        '   <rule ipv="ipv4" table="filter" chain="OUTPUT" priority="0">-m set --match-set blocked_v4 dst -j DROP</rule>\n',
+        '   <rule ipv="ipv6" table="filter" chain="INPUT" priority="0">-m set --match-set blocked_v6 src -j DROP</rule>\n',
+        '   <rule ipv="ipv6" table="filter" chain="OUTPUT" priority="0">-m set --match-set blocked_v6 dst -j DROP</rule>\n',
+        "</direct>\n",
+    ]
+    with open("/etc/firewalld-ext/temp/direct.xml.temp", "w") as f:
+        f.writelines(lines)
+    validate_form("/etc/firewalld-ext/temp/direct.xml.temp", verbose)
+    os.replace("/etc/firewalld-ext/temp/direct.xml.temp", "/etc/firewalld/direct.xml")
+    if verbose:
+        print("done")
+
+
+def create_blocked_xml(ipv4: set[str], ipv6: set[str], verbose: bool):
+    if verbose:
+        print("writing ipsets...")
+    v4_lines = [
+        '<?xml version="1.0" encoding="utf-8"?>\n',
+        '<ipset type="hash:net">\n',
+        '  <option name="family" value="inet"/>\n',
+        f'  <option name="maxelem" value="{len(ipv4)}"/>\n',
+    ]
+    v6_lines = [
+        '<?xml version="1.0" encoding="utf-8"?>\n',
+        '<ipset type="hash:net">\n',
+        '  <option name="family" value="inet6"/>\n',
+        f'  <option name="maxelem" value="{len(ipv6)}"/>\n',
+    ]
+    with open("/etc/firewalld-ext/temp/blocked_v4.xml.tmp", "w") as f:
+        f.writelines(v4_lines)
+    with open("/etc/firewalld-ext/temp/blocked_v6.xml.tmp", "w") as f:
+        f.writelines(v6_lines)
+
+
+def write_and_replace(ipv4: set[str], ipv6: set[str], verbose: bool):
     try:
+        for tmp_path, ips in [
+            ("/etc/firewalld-ext/temp/blocked_v4.xml.tmp", ipv4),
+            ("/etc/firewalld-ext/temp/blocked_v6.xml.tmp", ipv6),
+        ]:
+            with open(tmp_path, "a") as f:
+                for ip in ips:
+                    f.write(f"  <entry>{ip}</entry>\n")
+                f.write("</ipset>\n")
+        validate_form("/etc/firewalld-ext/temp/blocked_v4.xml.tmp", verbose)
+        validate_form("/etc/firewalld-ext/temp/blocked_v6.xml.tmp", verbose)
         os.replace(
-            "/etc/firewalld/ipsets/.blocked_v4.xml.tmp",
+            "/etc/firewalld-ext/temp/blocked_v4.xml.tmp",
             "/etc/firewalld/ipsets/blocked_v4.xml",
         )
         os.replace(
-            "/etc/firewalld/ipsets/.blocked_v6.xml.tmp",
+            "/etc/firewalld-ext/temp/blocked_v6.xml.tmp",
             "/etc/firewalld/ipsets/blocked_v6.xml",
         )
     except Exception as e:
@@ -146,23 +105,27 @@ def apply_rules(ipv4=None, ipv6=None, function=None, verbose=False):
             PRIORITY=3,
             SYSLOG_IDENTIFIER="firewalld-ext",
         )
-        return
-
+        sys.exit(1)
     if verbose:
-        print("Done")
-        print("Applying settings to firewalld...")
+        print("done")
 
+
+def apply_rules(
+    ipv4: set[str] = set(),
+    ipv6: set[str] = set(),
+    verbose: bool = False,
+):
+    create_direct_xml(verbose)
+    create_blocked_xml(ipv4, ipv6, verbose)
+    write_and_replace(ipv4, ipv6, verbose)
     try:
-        subprocess.run(["sudo", "firewall-cmd", "--complete-reload"], check=True)
+        if verbose:
+            print("blocking for firewalld...")
+        subprocess.run(["firewall-cmd", "--complete-reload"], check=True)
     except subprocess.CalledProcessError as e:
         journal.send(
             f"firewall-cmd reload failed with exit code {e.returncode}: {e}",
             PRIORITY=3,
             SYSLOG_IDENTIFIER="firewalld-ext",
         )
-    except Exception as e:
-        journal.send(
-            f"Unexpected error running firewall-cmd reload: {e}",
-            PRIORITY=3,
-            SYSLOG_IDENTIFIER="firewalld-ext",
-        )
+        sys.exit(1)
