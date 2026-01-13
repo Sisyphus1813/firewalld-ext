@@ -40,6 +40,7 @@ sudo uv pip install --system .
 sudo install -m 0644 ~/firewalld-ext/systemd/firewalld-ext.service \
                ~/firewalld-ext/systemd/firewalld-ext.timer \
                /etc/systemd/system/
+sudo systemctl daemon-reload
 sudo systemctl enable --now firewalld-ext.timer
 ```
 ---
