@@ -1,5 +1,5 @@
 [Unit]
-Description=Run firewalld-ext regularly
+Description=Run firewalld-ext roughly every 12 hours
 
 [Timer]
 OnBootSec=5min

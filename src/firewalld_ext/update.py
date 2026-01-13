@@ -17,6 +17,7 @@ import datetime
 import ipaddress
 import json
 import sys
+from json.decoder import JSONDecodeError
 
 import aiohttp
 
@@ -75,9 +76,16 @@ def parse(data):
         return set()
     for line in data["response"].splitlines():
         if "spamhaus" in data["source"]:
-            line = json.loads(line)
             try:
+                line = json.loads(line)
                 line = line["cidr"]
+            except JSONDecodeError:
+                journal.send(
+                    f"Invalid response recieved from {data['source']}. Response: {line}",
+                    PRIORITY=4,
+                    SYSLOG_IDENTIFIER="firewalld-ext",
+                )
+                continue
             except KeyError:
                 continue
         elif "csv" in data["source"]:
