@@ -19,6 +19,7 @@ SyslogIdentifier=firewalld-ext
 # Hardening
 NoNewPrivileges=yes
 PrivateTmp=yes
+ProtectSystem=strict
 ReadWritePaths=/etc/firewalld
 ReadWritePaths=/var/lib/firewalld-ext
 ProtectControlGroups=yes
