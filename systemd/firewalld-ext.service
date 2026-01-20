@@ -19,13 +19,9 @@ SyslogIdentifier=firewalld-ext
 # Hardening
 NoNewPrivileges=yes
 PrivateTmp=yes
-ProtectHome=yes
-ProtectSystem=strict
 ReadWritePaths=/etc/firewalld
-ReadWritePaths=/etc/firewalld-ext
 ReadWritePaths=/var/lib/firewalld-ext
 ProtectControlGroups=yes
-ProtectKernelTurtables=yes
 ProtectKernelModules=yes
 ProtectKernelLogs=yes
 MemoryDenyWriteExecute=yes
