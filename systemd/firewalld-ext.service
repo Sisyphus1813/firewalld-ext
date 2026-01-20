@@ -7,16 +7,31 @@ StartLimitBurst=3
 
 [Service]
 Type=simple
-# Run as root due to manipulating firewalld and /etc/ /var/ directories
+# Run as root due /etc & /var dir manipulation
 User=root
 Group=root
 ExecStart=/usr/local/bin/firewalld-ext --refresh
 Restart=on-failure
 RestartSec=60
-WorkingDirectory=/var/lib/firewalld-ext
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=firewalld-ext
+# Hardening
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/etc/firewalld
+ReadWritePaths=/etc/firewalld-ext
+ReadWritePaths=/var/lib/firewalld-ext
+ProtectControlGroups=yes
+ProtectKernelTurtables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+MemoryDenyWriteExecute=yes
+RestrictSUIDSGID=yes
+RestrictNamespaces=yes
+WorkingDirectory=/var/lib/firewalld-ext
 
 [Install]
 WantedBy=multi-user.target

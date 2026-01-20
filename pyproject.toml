@@ -1,7 +1,10 @@
 [project]
 name = "firewalld-ext"
-version = "0.1.6"
+version = "0.1.75"
 description = "Open source threat feed auto blocker."
+authors = [
+  { name = "Sisyphus1813", email = "Sisyphus1813@protonmail.com" },
+]
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
@@ -11,4 +14,7 @@ dependencies = [
 ]
 
 [project.scripts]
-firewalld-ext = "firewalld_ext.main:main"
+firewalld-ext = "main:main"
+
+[tool.pyrefly]
+mode = "strict"

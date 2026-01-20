@@ -20,7 +20,7 @@ from xml.parsers.expat import ExpatError, ParserCreate
 from systemd import journal
 
 
-def validate_form(path, verbose):
+def validate_form(path: str, verbose: bool) -> None:
     try:
         p = ParserCreate()
         with open(path, "rb") as f:
@@ -38,7 +38,7 @@ def validate_form(path, verbose):
         print(f"sucessfully validated {path}")
 
 
-def create_direct_xml(verbose: bool):
+def create_direct_xml(verbose: bool) -> None:
     if verbose:
         print("writing direct rules...")
     lines = [
@@ -50,15 +50,15 @@ def create_direct_xml(verbose: bool):
         '   <rule ipv="ipv6" table="filter" chain="OUTPUT" priority="0">-m set --match-set blocked_v6 dst -j DROP</rule>\n',
         "</direct>\n",
     ]
-    with open("/etc/firewalld-ext/temp/direct.xml.temp", "w") as f:
+    with open("/etc/firewalld/temp/direct.xml.temp", "w") as f:
         f.writelines(lines)
-    validate_form("/etc/firewalld-ext/temp/direct.xml.temp", verbose)
-    os.replace("/etc/firewalld-ext/temp/direct.xml.temp", "/etc/firewalld/direct.xml")
+    validate_form("/etc/firewalld/temp/direct.xml.temp", verbose)
+    os.replace("/etc/firewalld/temp/direct.xml.temp", "/etc/firewalld/direct.xml")
     if verbose:
         print("done")
 
 
-def create_blocked_xml(ipv4: set[str], ipv6: set[str], verbose: bool):
+def create_blocked_xml(ipv4: set[str], ipv6: set[str], verbose: bool) -> None:
     if verbose:
         print("writing ipsets...")
     v4_lines = [
@@ -73,30 +73,30 @@ def create_blocked_xml(ipv4: set[str], ipv6: set[str], verbose: bool):
         '  <option name="family" value="inet6"/>\n',
         f'  <option name="maxelem" value="{len(ipv6)}"/>\n',
     ]
-    with open("/etc/firewalld-ext/temp/blocked_v4.xml.tmp", "w") as f:
+    with open("/etc/firewalld/temp/blocked_v4.xml.tmp", "w") as f:
         f.writelines(v4_lines)
-    with open("/etc/firewalld-ext/temp/blocked_v6.xml.tmp", "w") as f:
+    with open("/etc/firewalld/temp/blocked_v6.xml.tmp", "w") as f:
         f.writelines(v6_lines)
 
 
-def write_and_replace(ipv4: set[str], ipv6: set[str], verbose: bool):
+def write_and_replace(ipv4: set[str], ipv6: set[str], verbose: bool) -> None:
     try:
         for tmp_path, ips in [
-            ("/etc/firewalld-ext/temp/blocked_v4.xml.tmp", ipv4),
-            ("/etc/firewalld-ext/temp/blocked_v6.xml.tmp", ipv6),
+            ("/etc/firewalld/temp/blocked_v4.xml.tmp", ipv4),
+            ("/etc/firewalld/temp/blocked_v6.xml.tmp", ipv6),
         ]:
             with open(tmp_path, "a") as f:
                 for ip in ips:
                     f.write(f"  <entry>{ip}</entry>\n")
                 f.write("</ipset>\n")
-        validate_form("/etc/firewalld-ext/temp/blocked_v4.xml.tmp", verbose)
-        validate_form("/etc/firewalld-ext/temp/blocked_v6.xml.tmp", verbose)
+        validate_form("/etc/firewalld/temp/blocked_v4.xml.tmp", verbose)
+        validate_form("/etc/firewalld/temp/blocked_v6.xml.tmp", verbose)
         os.replace(
-            "/etc/firewalld-ext/temp/blocked_v4.xml.tmp",
+            "/etc/firewalld/temp/blocked_v4.xml.tmp",
             "/etc/firewalld/ipsets/blocked_v4.xml",
         )
         os.replace(
-            "/etc/firewalld-ext/temp/blocked_v6.xml.tmp",
+            "/etc/firewalld/temp/blocked_v6.xml.tmp",
             "/etc/firewalld/ipsets/blocked_v6.xml",
         )
     except Exception as e:
@@ -114,7 +114,7 @@ def apply_rules(
     ipv4: set[str] = set(),
     ipv6: set[str] = set(),
     verbose: bool = False,
-):
+) -> None:
     create_direct_xml(verbose)
     create_blocked_xml(ipv4, ipv6, verbose)
     write_and_replace(ipv4, ipv6, verbose)

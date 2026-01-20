@@ -77,7 +77,7 @@ wheels = [
 
 [[package]]
 name = "firewalld-ext"
-version = "0.1.6"
+version = "0.1.75"
 source = { virtual = "." }
 dependencies = [
     { name = "aiohttp" },
